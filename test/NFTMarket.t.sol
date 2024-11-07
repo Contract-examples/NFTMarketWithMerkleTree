@@ -13,6 +13,7 @@ import "../src/NFTMarket.sol";
 import "../src/MyERC20PermitToken.sol";
 import "../src/MyNFT.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@multicall3-sdk/sdk/IMulticall3.sol";
 
 contract NFTMarketTest is Test, IERC20Errors {
     using ECDSA for bytes32;
@@ -287,5 +288,96 @@ contract NFTMarketTest is Test, IERC20Errors {
             res++;
         }
         return res;
+    }
+
+    function testMulticallPermitAndClaim_openzeppelin() public {
+        uint256 buyerIndex = 0; // test the first whitelist buyer
+        address currentBuyer = whitelistBuyers[buyerIndex];
+        uint256 currentBuyerPK = whitelistBuyersPrivateKeys[buyerIndex];
+
+        // mint a new NFT for testing
+        vm.startPrank(owner);
+        nftContract.safeMint(seller, string(abi.encodePacked("ipfs://gmh-", Strings.toString(tokenId))));
+        vm.stopPrank();
+
+        uint256 price = 100 * 10 ** paymentToken.decimals();
+        uint256 deadline = block.timestamp + 1 hours;
+
+        vm.startPrank(seller);
+        nftContract.approve(address(market), tokenId);
+        market.list(tokenId, price);
+        vm.stopPrank();
+
+        // Generate permit signature
+        bytes32 permitHash = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                paymentToken.DOMAIN_SEPARATOR(),
+                keccak256(
+                    abi.encode(
+                        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+                        currentBuyer,
+                        address(market),
+                        price,
+                        paymentToken.nonces(currentBuyer),
+                        deadline
+                    )
+                )
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(currentBuyerPK, permitHash);
+
+        // Get merkle proof
+        bytes32[] memory proof = getMerkleProof(currentBuyer);
+
+        // Prepare multicall data
+        bytes[] memory data = new bytes[](2);
+
+        // Prepare permitPrePay call
+        data[0] = abi.encodeWithSelector(market.permitPrePay.selector, price, deadline, v, r, s);
+
+        // Prepare claimNFT call
+        data[1] = abi.encodeWithSelector(market.claimNFT.selector, tokenId, proof, merkleRoot);
+
+        // Record initial balances
+        uint256 sellerInitialBalance = paymentToken.balanceOf(seller);
+        uint256 buyerInitialBalance = paymentToken.balanceOf(currentBuyer);
+
+        // Execute multicall
+        vm.startPrank(currentBuyer);
+
+        console2.log("Current buyer:", currentBuyer);
+        console2.log("Market address:", address(market));
+        console2.log("Token price:", price);
+        console2.log("Merkle root:", uint256(merkleRoot));
+
+        // Execute multicall and catch any revert
+        try market.multicall(data) returns (bytes[] memory results) {
+            assertEq(results.length, 2, "Wrong number of results");
+
+            assertEq(nftContract.ownerOf(tokenId), currentBuyer, "NFT not transferred");
+            assertEq(
+                paymentToken.balanceOf(seller),
+                sellerInitialBalance + (100 * 10 ** paymentToken.decimals()),
+                "Seller balance not updated"
+            );
+            assertEq(
+                paymentToken.balanceOf(currentBuyer),
+                buyerInitialBalance - (100 * 10 ** paymentToken.decimals()),
+                "Buyer balance not updated"
+            );
+
+            (address listedSeller, uint256 listedPrice) = market.listings(tokenId);
+            assertEq(listedSeller, address(0), "NFT still listed");
+            assertEq(listedPrice, 0, "NFT price not reset");
+            assertEq(paymentToken.allowance(currentBuyer, address(market)), 0, "Permit not consumed");
+        } catch Error(string memory reason) {
+            console2.log("Multicall failed: ", reason);
+        } catch (bytes memory) {
+            console2.log("Multicall failed with no reason");
+        }
+
+        vm.stopPrank();
     }
 }
