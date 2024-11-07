@@ -13,7 +13,7 @@ import "../src/NFTMarket.sol";
 import "../src/MyERC20PermitToken.sol";
 import "../src/MyNFT.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@multicall3-sdk/sdk/IMulticall3.sol";
+//import "@multicall3-sdk/sdk/IMulticall3.sol";
 
 contract NFTMarketTest is Test, IERC20Errors {
     using ECDSA for bytes32;
@@ -22,6 +22,7 @@ contract NFTMarketTest is Test, IERC20Errors {
     NFTMarket public market;
     MyERC20PermitToken public paymentToken;
     MyNFT public nftContract;
+    //IMulticall3 public multicall3;
 
     address public owner;
     address public seller;
@@ -51,6 +52,7 @@ contract NFTMarketTest is Test, IERC20Errors {
 
         paymentToken = new MyERC20PermitToken("MyNFTToken2612", "MTK2612", 1_000_000 * 10 ** 18);
         nftContract = new MyNFT("MyNFT", "MFT", 1000);
+        //multicall3 = IMulticall3(deployCode("../lib/multicall3-sdk/abi/Multicall3.sol:Multicall3"));
 
         // build merkle tree
         bytes32[] memory leaves = new bytes32[](whitelistBuyers.length);
@@ -380,4 +382,130 @@ contract NFTMarketTest is Test, IERC20Errors {
 
         vm.stopPrank();
     }
+
+    // ---------------------------------------------------------
+    // note: multicall3 is only supported on read-only functions
+    // ---------------------------------------------------------
+    // function testMulticallPermitAndClaim_multicall3(uint256 buyerIndex) public {
+    //     buyerIndex = buyerIndex % whitelistBuyers.length;
+    //     address currentBuyer = whitelistBuyers[buyerIndex];
+    //     uint256 currentBuyerPK = whitelistBuyersPrivateKeys[buyerIndex];
+
+    //     // mint a new NFT for testing
+    //     vm.startPrank(owner);
+    //     nftContract.safeMint(seller, string(abi.encodePacked("ipfs://gmh-", Strings.toString(tokenId))));
+    //     vm.stopPrank();
+
+    //     uint256 price = 100 * 10 ** paymentToken.decimals();
+    //     uint256 deadline = block.timestamp + 1 hours;
+
+    //     vm.startPrank(seller);
+    //     nftContract.approve(address(market), tokenId);
+    //     market.list(tokenId, price);
+    //     vm.stopPrank();
+
+    //     // Generate permit signature
+    //     bytes32 permitHash = keccak256(
+    //         abi.encodePacked(
+    //             "\x19\x01",
+    //             paymentToken.DOMAIN_SEPARATOR(),
+    //             keccak256(
+    //                 abi.encode(
+    //                     keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256
+    // deadline)"),
+    //                     currentBuyer,
+    //                     address(market),
+    //                     price,
+    //                     paymentToken.nonces(currentBuyer),
+    //                     deadline
+    //                 )
+    //             )
+    //         )
+    //     );
+
+    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(currentBuyerPK, permitHash);
+
+    //     // Get merkle proof
+    //     bytes32[] memory proof = getMerkleProof(currentBuyer);
+
+    //     // Record initial balances
+    //     uint256 sellerInitialBalance = paymentToken.balanceOf(seller);
+    //     uint256 buyerInitialBalance = paymentToken.balanceOf(currentBuyer);
+
+    //     // Prepare multicall data
+    //     IMulticall3.Call3[] memory calls = new IMulticall3.Call3[](1);
+
+    //     vm.startPrank(currentBuyer);
+
+    //     console2.log("Market address:", address(market));
+
+    //     // Prepare permitPrePay call
+    //     calls[0] = IMulticall3.Call3({
+    //         target: address(market),
+    //         allowFailure: false,
+    //         callData: abi.encodeWithSelector(market.permitPrePay.selector, price, deadline, v, r, s)
+    //     });
+
+    //     // // Prepare claimNFT call
+    //     // calls[1] = IMulticall3.Call3({
+    //     //     target: address(market),
+    //     //     allowFailure: false,
+    //     //     callData: abi.encodeWithSelector(market.claimNFT.selector, tokenId, proof, merkleRoot)
+    //     // });
+
+    //     console2.log("Current buyer2:", currentBuyer);
+    //     console2.log("Market address:", address(market));
+    //     console2.log("Token price:", price);
+    //     console2.log("Merkle root:", uint256(merkleRoot));
+    //     console2.log("Proof length:", proof.length);
+    //     for (uint256 i = 0; i < proof.length; i++) {
+    //         console2.log("Proof", i, ":", uint256(proof[i]));
+    //     }
+    //     console2.log("Current nonce:", paymentToken.nonces(currentBuyer));
+    //     console2.log("Current allowance:", paymentToken.allowance(currentBuyer, address(market)));
+
+    //     // Execute multicall and catch any revert
+    //     try multicall3.aggregate3(calls) returns (IMulticall3.Result[] memory results) {
+    //         // Print detailed results
+    //         for (uint256 i = 0; i < results.length; i++) {
+    //             console2.log("Call", i, "success:", results[i].success);
+    //             if (!results[i].success) {
+    //                 console2.log("Call", i, "failed");
+    //                 console2.logBytes(results[i].returnData);
+    //             }
+    //         }
+
+    //         // assertTrue(results[0].success, "permitPrePay failed");
+    //         // assertTrue(results[1].success, "claimNFT failed");
+
+    //         // // Verify final state
+    //         // assertEq(nftContract.ownerOf(tokenId), currentBuyer, "NFT not transferred");
+    //         // assertEq(
+    //         //     paymentToken.balanceOf(seller),
+    //         //     sellerInitialBalance + (100 * 10 ** paymentToken.decimals()),
+    //         //     "Seller balance not updated"
+    //         // );
+    //         // assertEq(
+    //         //     paymentToken.balanceOf(currentBuyer),
+    //         //     buyerInitialBalance - (100 * 10 ** paymentToken.decimals()),
+    //         //     "Buyer balance not updated"
+    //         // );
+
+    //         // (address listedSeller, uint256 listedPrice) = market.listings(tokenId);
+    //         // assertEq(listedSeller, address(0), "NFT still listed");
+    //         // assertEq(listedPrice, 0, "NFT price not reset");
+
+    //         // // Verify permit was used
+    //         // assertEq(paymentToken.allowance(currentBuyer, address(market)), 0, "Permit not consumed");
+    //     } catch Error(string memory reason) {
+    //         console2.log("Multicall3 failed with reason:", reason);
+    //         revert(string(abi.encodePacked("Multicall3 failed: ", reason)));
+    //     } catch (bytes memory returnData) {
+    //         console2.log("Multicall3 failed with raw data:");
+    //         console2.logBytes(returnData);
+    //         revert("Multicall3 failed with raw data");
+    //     }
+
+    //     vm.stopPrank();
+    // }
 }
