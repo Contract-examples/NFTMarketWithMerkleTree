@@ -38,6 +38,8 @@ contract NFTMarket is IERC20Receiver, Ownable {
     event NFTUnlisted(uint256 indexed tokenId);
     event Refund(address indexed from, uint256 amount);
     event WhitelistBuy(uint256 indexed tokenId, address indexed buyer, uint256 price);
+    event WhitelistBuyWithMerkle(uint256 indexed tokenId, address indexed buyer, uint256 price);
+    event PermitPrePay(uint256 amount, uint256 deadline);
 
     // custom structs
     struct Listing {
@@ -288,6 +290,8 @@ contract NFTMarket is IERC20Receiver, Ownable {
     function permitPrePay(uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
         // erc2612 permit
         paymentTokenPermit.permit(msg.sender, address(this), amount, deadline, v, r, s);
+
+        emit PermitPrePay(amount, deadline);
     }
 
     function claimNFT(uint256 tokenId, bytes32[] calldata proof) external {
@@ -308,6 +312,9 @@ contract NFTMarket is IERC20Receiver, Ownable {
 
         // transfer NFT from seller to buyer
         _safeTransferFromSellerToBuyer(tokenId, msg.sender);
+
+        // emit the WhitelistBuyWithMerkle event
+        emit WhitelistBuyWithMerkle(tokenId, msg.sender, 100 * 10 ** 18);
     }
 
     // verify the whitelist
