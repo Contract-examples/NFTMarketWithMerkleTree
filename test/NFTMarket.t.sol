@@ -290,8 +290,8 @@ contract NFTMarketTest is Test, IERC20Errors {
         return res;
     }
 
-    function testMulticallPermitAndClaim_openzeppelin() public {
-        uint256 buyerIndex = 0; // test the first whitelist buyer
+    function testMulticallPermitAndClaim_openzeppelin(uint256 buyerIndex) public {
+        buyerIndex = buyerIndex % whitelistBuyers.length;
         address currentBuyer = whitelistBuyers[buyerIndex];
         uint256 currentBuyerPK = whitelistBuyersPrivateKeys[buyerIndex];
 
