@@ -1,4 +1,4 @@
-# NFT Market with permit
+# NFT Market with merkle tree
 
 
 ## Test
