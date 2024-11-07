@@ -62,13 +62,9 @@ contract NFTMarket is IERC20Receiver, Ownable {
     // this is our listing mapping [tokenId => Listing]
     mapping(uint256 => Listing) public listings;
 
-    // merkle root
-    bytes32 public merkleRoot;
-
-    constructor(address _nftContract, address _paymentToken, bytes32 _merkleRoot) Ownable(msg.sender) {
+    constructor(address _nftContract, address _paymentToken) Ownable(msg.sender) {
         nftContract = IERC721(_nftContract);
         paymentToken = IERC20(_paymentToken);
-        merkleRoot = _merkleRoot;
 
         // check if the payment token supports permit
         supportsPermit = _isPermitSupported(_paymentToken);
@@ -80,7 +76,7 @@ contract NFTMarket is IERC20Receiver, Ownable {
         whitelistSigner = msg.sender;
     }
 
-    // this is a function to set the whitelist signer
+    // set the whitelist signer
     function setWhitelistSigner(address _whitelistSigner) external onlyOwner {
         if (_whitelistSigner == address(0)) {
             revert InvalidWhitelistSigner();
@@ -295,9 +291,9 @@ contract NFTMarket is IERC20Receiver, Ownable {
         emit PermitPrePay(amount, deadline);
     }
 
-    function claimNFT(uint256 tokenId, bytes32[] calldata proof) external {
+    function claimNFT(uint256 tokenId, bytes32[] calldata proof, bytes32 merkleRoot) external {
         // verify if the user is in the whitelist
-        if (!verifyWhitelist(msg.sender, proof)) {
+        if (!verifyWhitelist(msg.sender, proof, merkleRoot)) {
             revert NotWhitelistedInMerkleTree();
         }
 
@@ -319,7 +315,7 @@ contract NFTMarket is IERC20Receiver, Ownable {
     }
 
     // verify the whitelist
-    function verifyWhitelist(address user, bytes32[] calldata proof) internal view returns (bool) {
+    function verifyWhitelist(address user, bytes32[] calldata proof, bytes32 merkleRoot) internal view returns (bool) {
         // calculate the leaf node hash
         bytes32 leaf = keccak256(abi.encodePacked(user));
 
