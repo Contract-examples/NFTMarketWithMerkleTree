@@ -10,8 +10,9 @@ import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@solady/utils/SafeTransferLib.sol";
 import "./IERC20Receiver.sol";
+import "@openzeppelin/contracts/utils/Multicall.sol";
 
-contract NFTMarket is IERC20Receiver, Ownable {
+contract NFTMarket is IERC20Receiver, Ownable, Multicall {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
