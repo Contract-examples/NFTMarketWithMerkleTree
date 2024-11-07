@@ -293,7 +293,7 @@ contract NFTMarket is IERC20Receiver, Ownable {
 
     function claimNFT(uint256 tokenId, bytes32[] calldata proof, bytes32 merkleRoot) external {
         // verify if the user is in the whitelist
-        if (!verifyWhitelist(msg.sender, proof, merkleRoot)) {
+        if (!verifyMerkleTreeWhitelist(msg.sender, proof, merkleRoot)) {
             revert NotWhitelistedInMerkleTree();
         }
 
@@ -315,7 +315,15 @@ contract NFTMarket is IERC20Receiver, Ownable {
     }
 
     // verify the whitelist
-    function verifyWhitelist(address user, bytes32[] calldata proof, bytes32 merkleRoot) internal view returns (bool) {
+    function verifyMerkleTreeWhitelist(
+        address user,
+        bytes32[] calldata proof,
+        bytes32 merkleRoot
+    )
+        internal
+        view
+        returns (bool)
+    {
         // calculate the leaf node hash
         bytes32 leaf = keccak256(abi.encodePacked(user));
 
