@@ -31,6 +31,7 @@ contract NFTMarket is IERC20Receiver, Ownable {
     error NotSignedByWhitelistSigner();
     error PermitNotSupported();
     error InvalidWhitelistSigner();
+    error NotWhitelistedInMerkleTree();
 
     // custom events
     event NFTListed(uint256 indexed tokenId, address indexed seller, uint256 price);

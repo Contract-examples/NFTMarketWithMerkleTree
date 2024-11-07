@@ -21,7 +21,8 @@ contract DeployNFTMarket is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        NFTMarket market = new NFTMarket(nftAddress, tokenAddress);
+        bytes32 merkleRoot = keccak256(abi.encodePacked(deployerAddress));
+        NFTMarket market = new NFTMarket(nftAddress, tokenAddress, merkleRoot);
 
         vm.stopBroadcast();
 
