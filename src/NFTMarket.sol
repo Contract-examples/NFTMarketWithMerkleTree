@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@solady/utils/SafeTransferLib.sol";
 import "./IERC20Receiver.sol";
 
@@ -58,9 +59,13 @@ contract NFTMarket is IERC20Receiver, Ownable {
     // this is our listing mapping [tokenId => Listing]
     mapping(uint256 => Listing) public listings;
 
-    constructor(address _nftContract, address _paymentToken) Ownable(msg.sender) {
+    // merkle root
+    bytes32 public merkleRoot;
+
+    constructor(address _nftContract, address _paymentToken, bytes32 _merkleRoot) Ownable(msg.sender) {
         nftContract = IERC721(_nftContract);
         paymentToken = IERC20(_paymentToken);
+        merkleRoot = _merkleRoot;
 
         // check if the payment token supports permit
         supportsPermit = _isPermitSupported(_paymentToken);
@@ -278,5 +283,39 @@ contract NFTMarket is IERC20Receiver, Ownable {
 
         // emit the WhitelistBuy event
         emit WhitelistBuy(tokenId, msg.sender, price);
+    }
+
+    function permitPrePay(uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
+        // erc2612 permit
+        paymentTokenPermit.permit(msg.sender, address(this), amount, deadline, v, r, s);
+    }
+
+    function claimNFT(uint256 tokenId, bytes32[] calldata proof) external {
+        // verify if the user is in the whitelist
+        if (!verifyWhitelist(msg.sender, proof)) {
+            revert NotWhitelistedInMerkleTree();
+        }
+
+        // get the listing information
+        Listing memory listing = listings[tokenId];
+        // make sure the NFT is listed
+        if (listing.price == 0) {
+            revert NFTNotListed();
+        }
+
+        // transfer 100 tokens to the seller
+        SafeTransferLib.safeTransferFrom(address(paymentToken), msg.sender, listing.seller, 100 * 10 ** 18);
+
+        // transfer NFT from seller to buyer
+        _safeTransferFromSellerToBuyer(tokenId, msg.sender);
+    }
+
+    // verify the whitelist
+    function verifyWhitelist(address user, bytes32[] calldata proof) internal view returns (bool) {
+        // calculate the leaf node hash
+        bytes32 leaf = keccak256(abi.encodePacked(user));
+
+        // verify if the user is in the whitelist
+        return MerkleProof.verify(proof, merkleRoot, leaf);
     }
 }
